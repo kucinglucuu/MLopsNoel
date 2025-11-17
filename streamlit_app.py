@@ -17,64 +17,55 @@ if uploaded_file is not None:
     st.write("### Data:")
     st.dataframe(df.head())
 
-    # ================================
-    #   PILIH TARGET (HANYA NUMERIK)
-    # ================================
-    st.write("### Pilih Kolom Target (Y)")
-    numeric_cols = df.select_dtypes(include=["number"]).columns
+    # Pilih target (Y)
+    st.write("### Pilih Kolom Target (HARUS numerik):")
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    target_col = st.selectbox("Pilih target:", numeric_cols)
 
-    if len(numeric_cols) == 0:
-        st.error("Tidak ada kolom numerik untuk dijadikan target!")
-        st.stop()
-
-    target_col = st.selectbox("Pilih target (HARUS numerik):", numeric_cols)
-
-    # ================================
-    #   Fitur dan Target
-    # ================================
+    # Fitur (X)
     X = df.drop(columns=[target_col])
     y = df[target_col]
 
-    # Target harus numerik
-    y = pd.to_numeric(y, errors="coerce")
-    if y.isna().any():
-        st.error("Target mengandung nilai non-numerik.")
-        st.stop()
-
-    # ================================
-    #   NORMALISASI KATEGORIKAL (FIX)
-    # ================================
+    # ==========================================
+    # FIX: BERSIHKAN SEMUA KATEGORIKAL
+    # ==========================================
     for col in X.columns:
-        if X[col].dtype == 'object':
-            X[col] = X[col].astype(str).str.strip().str.upper()
+        if not pd.api.types.is_numeric_dtype(X[col]):
+            X[col] = (
+                X[col]
+                .astype(str)                                # Paksa string
+                .str.replace(r"[^A-Za-z0-9 ]", "", regex=True)  # Bersihkan karakter aneh
+                .str.strip()
+                .str.upper()
+            )
 
-    # ================================
-    #       One-hot encode fitur
-    # ================================
+    # ==========================================
+    # One-hot encoding
+    # ==========================================
     X_encoded = pd.get_dummies(X, drop_first=True)
 
-    # Double check numeric only
-    if X_encoded.select_dtypes(exclude=np.number).shape[1] > 0:
+    # Cek apakah masih ada non-numeric
+    not_numeric = X_encoded.select_dtypes(exclude=[np.number]).columns
+    if len(not_numeric) > 0:
         st.error("Masih ada fitur non-numerik setelah encoding.")
+        st.write("Kolom bermasalah:", list(not_numeric))
         st.stop()
 
-    # ================================
-    #         Train-Test Split
-    # ================================
+    # ==========================================
+    # Train-Test Split
+    # ==========================================
     X_train, X_test, y_train, y_test = train_test_split(
         X_encoded, y, test_size=0.2, random_state=42
     )
 
-    # ================================
-    #            Model
-    # ================================
+    # Model
     model = LinearRegression()
     model.fit(X_train, y_train)
+
+    # Prediksi
     y_pred = model.predict(X_test)
 
-    # ================================
-    #           Evaluasi
-    # ================================
+    # Evaluasi
     mse = mean_squared_error(y_test, y_pred)
     r2 = r2_score(y_test, y_pred)
 
@@ -96,10 +87,8 @@ if uploaded_file is not None:
     st.write("### Coba Prediksi Manual")
 
     user_input = {}
-    original_X = df.drop(columns=[target_col])
 
-    for col in original_X.columns:
-        # Numeric input
+    for col in X.columns:
         if pd.api.types.is_numeric_dtype(df[col]):
             user_input[col] = st.number_input(
                 f"Masukkan nilai untuk {col}",
@@ -107,22 +96,27 @@ if uploaded_file is not None:
                 float(df[col].max())
             )
         else:
-            # Text input (kategori)
-            user_input[col] = st.text_input(f"Masukkan nilai untuk {col} (kategori)")
+            user_input[col] = st.text_input(f"Masukkan nilai untuk {col} (kategori)").upper().strip()
 
     if st.button("Prediksi"):
-        # Convert ke DataFrame
+        # Convert ke dataframe
         input_df = pd.DataFrame([user_input])
 
-        # Normalisasi input kategorikal
+        # Cleaning sama seperti X
         for col in input_df.columns:
-            if input_df[col].dtype == "object":
-                input_df[col] = input_df[col].astype(str).str.strip().str.upper()
+            if not pd.api.types.is_numeric_dtype(df[col]):
+                input_df[col] = (
+                    input_df[col]
+                    .astype(str)
+                    .str.replace(r"[^A-Za-z0-9 ]", "", regex=True)
+                    .str.strip()
+                    .str.upper()
+                )
 
-        # One-hot encode input
-        input_encoded = pd.get_dummies(input_df, drop_first=True)
+        # One-hot encoding input
+        input_encoded = pd.get_dummies(input_df)
 
-        # Samakan kolom dengan training
+        # Samakan kolom seperti training
         input_encoded = input_encoded.reindex(columns=X_encoded.columns, fill_value=0)
 
         # Prediksi
