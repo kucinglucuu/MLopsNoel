@@ -16,7 +16,7 @@ if uploaded_file is not None:
     st.write("### Data:")
     st.dataframe(df.head())
 
-    # Pilih target (numerik)
+    # Pilih target numerik saja
     numeric_cols = df.select_dtypes(include=[np.number]).columns
     target_col = st.selectbox("Pilih target (HARUS numerik):", numeric_cols)
 
@@ -25,16 +25,15 @@ if uploaded_file is not None:
     y = df[target_col]
 
     # ======================================================
-    # 1. Mapping kategori menjadi angka (agar aman)
+    # 1. Mapping kategori → angka
     # ======================================================
-
     if "Sex" in X:
         X["Sex"] = X["Sex"].map({"M": 1, "F": 0})
 
     if "ExerciseAngina" in X:
         X["ExerciseAngina"] = X["ExerciseAngina"].map({"Y": 1, "N": 0})
 
-    # Pastikan kolom text lain uppercase dan bersih
+    # Bersihkan text kolom lain
     for col in X.columns:
         if X[col].dtype == object:
             X[col] = (
@@ -45,7 +44,7 @@ if uploaded_file is not None:
             )
 
     # ======================================================
-    # 2. One-hot encoding untuk kolom kategorikal lain
+    # 2. One-hot encoding dan paksa float
     # ======================================================
     X_encoded = pd.get_dummies(X, drop_first=True).astype(float)
 
@@ -86,21 +85,25 @@ if uploaded_file is not None:
 
     for col in X.columns:
         if pd.api.types.is_numeric_dtype(X[col]):
-            user_input[col] = st.number_input(f"Nilai {col}", float(X[col].min()), float(X[col].max()))
+            user_input[col] = st.number_input(
+                f"Nilai {col}", float(X[col].min()), float(X[col].max())
+            )
         else:
             user_input[col] = st.text_input(f"{col} (kategori)").upper().strip()
 
     if st.button("Prediksi"):
         input_df = pd.DataFrame([user_input])
 
-        # Apply SAME mapping
+        # === Mapping kategori yang sama seperti training ===
         if "Sex" in input_df:
             input_df["Sex"] = input_df["Sex"].map({"M": 1, "F": 0})
+            input_df["Sex"] = input_df["Sex"].fillna(0)
 
         if "ExerciseAngina" in input_df:
             input_df["ExerciseAngina"] = input_df["ExerciseAngina"].map({"Y": 1, "N": 0})
+            input_df["ExerciseAngina"] = input_df["ExerciseAngina"].fillna(0)
 
-        # Clean other categorical text
+        # Clean categorical text input
         for c in input_df.columns:
             if input_df[c].dtype == object:
                 input_df[c] = (
@@ -110,11 +113,16 @@ if uploaded_file is not None:
                     .str.upper()
                 )
 
+        # One-hot encoding input
         input_encoded = pd.get_dummies(input_df).astype(float)
 
-        # Align with training columns
+        # Samakan kolom
         input_encoded = input_encoded.reindex(columns=X_encoded.columns, fill_value=0)
 
+        # === FIX FINAL: Hapus semua NaN ===
+        input_encoded = input_encoded.fillna(0)
+
+        # Prediksi
         pred = model.predict(input_encoded)
         st.success(f"Prediksi: {pred[0]:,.2f}")
 
