@@ -17,16 +17,39 @@ if uploaded_file is not None:
     st.write("### Data:")
     st.dataframe(df.head())
 
-    # Pilih target (Y)
+    # ================================
+    #   FIX: Target hanya kolom numerik
+    # ================================
     st.write("### Pilih Kolom Target (Y)")
-    target_col = st.selectbox("Pilih target:", df.columns)
+    numeric_cols = df.select_dtypes(include=["number"]).columns
 
-    # Fitur (X)
+    if len(numeric_cols) == 0:
+        st.error("Tidak ada kolom numerik untuk dijadikan target!")
+        st.stop()
+
+    target_col = st.selectbox("Pilih target (HARUS numerik):", numeric_cols)
+
+    # ================================
+    #   Fitur dan Target
+    # ================================
     X = df.drop(columns=[target_col])
     y = df[target_col]
 
-    # Convert categorical → numeric (one-hot)
-    X_encoded = pd.get_dummies(X)
+    # Target harus numerik
+    y = pd.to_numeric(y, errors="coerce")
+    if y.isna().any():
+        st.error("Target mengandung nilai non-numerik.")
+        st.stop()
+
+    # ================================
+    #    FIX: One-hot encode fitur
+    # ================================
+    X_encoded = pd.get_dummies(X, drop_first=True)
+
+    # Cek jika masih ada non-numeric (seharusnya tidak)
+    if X_encoded.select_dtypes(exclude=np.number).shape[1] > 0:
+        st.error("Masih ada fitur non-numerik setelah encoding.")
+        st.stop()
 
     # Train-Test Split
     X_train, X_test, y_train, y_test = train_test_split(
@@ -74,13 +97,13 @@ if uploaded_file is not None:
             )
 
     if st.button("Prediksi"):
-        # Convert ke dataframe
+        # Convert user input ke dataframe
         input_df = pd.DataFrame([user_input])
 
-        # One-hot encoding utk input
-        input_encoded = pd.get_dummies(input_df)
+        # One-hot encode input
+        input_encoded = pd.get_dummies(input_df, drop_first=True)
 
-        # Samakan kolom seperti training
+        # Samakan kolom seperti data training
         input_encoded = input_encoded.reindex(columns=X_encoded.columns, fill_value=0)
 
         # Prediksi
