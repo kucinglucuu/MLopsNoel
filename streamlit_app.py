@@ -17,17 +17,20 @@ if uploaded_file is not None:
     st.write("### Data:")
     st.dataframe(df.head())
 
-    # Pilih kolom target (Y)
+    # Pilih target (Y)
     st.write("### Pilih Kolom Target (Y)")
     target_col = st.selectbox("Pilih target:", df.columns)
 
-    # Fitur = semua kolom kecuali target
+    # Fitur (X)
     X = df.drop(columns=[target_col])
     y = df[target_col]
 
+    # Convert categorical → numeric (one-hot)
+    X_encoded = pd.get_dummies(X)
+
     # Train-Test Split
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42
+        X_encoded, y, test_size=0.2, random_state=42
     )
 
     # Model
@@ -51,36 +54,38 @@ if uploaded_file is not None:
     ax.set_title("Prediksi vs Aktual")
     st.pyplot(fig)
 
-    # Prediksi manual
+    # ================================
+    #        PREDIKSI MANUAL
+    # ================================
     st.write("### Coba Prediksi Manual")
-    input_data = []
+
+    user_input = {}
 
     for col in X.columns:
-        # Cek apakah kolom numeric
         if pd.api.types.is_numeric_dtype(df[col]):
-            val = st.number_input(
+            user_input[col] = st.number_input(
                 f"Masukkan nilai untuk {col}",
                 float(df[col].min()),
                 float(df[col].max())
             )
         else:
-            # Jika kolom kategorikal -> text input
-            val = st.text_input(f"Masukkan nilai untuk {col}")
-        input_data.append(val)
+            user_input[col] = st.text_input(
+                f"Masukkan nilai untuk {col} (kategori)"
+            )
 
     if st.button("Prediksi"):
-        # Konversi input ke dataframe agar aman
-        input_df = pd.DataFrame([input_data], columns=X.columns)
+        # Convert ke dataframe
+        input_df = pd.DataFrame([user_input])
 
-        # Konversi categorical ke numeric (jika ada)
-        input_df = pd.get_dummies(input_df)
-        X_model = pd.get_dummies(X)
+        # One-hot encoding utk input
+        input_encoded = pd.get_dummies(input_df)
 
-        # Samakan kolom
-        input_df = input_df.reindex(columns=X_model.columns, fill_value=0)
+        # Samakan kolom seperti training
+        input_encoded = input_encoded.reindex(columns=X_encoded.columns, fill_value=0)
 
-        pred = model.predict(input_df)
-        st.success(f"Prediksi nilai: {pred[0]:,.2f}")
+        # Prediksi
+        prediction = model.predict(input_encoded)
+        st.success(f"Prediksi nilai: {prediction[0]:,.2f}")
 
 else:
     st.info("Silakan upload file CSV terlebih dahulu.")
