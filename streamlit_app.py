@@ -24,9 +24,7 @@ if uploaded_file is not None:
     X = df.drop(columns=[target_col])
     y = df[target_col]
 
-    # ======================================================
-    # 1. Mapping kategori → angka
-    # ======================================================
+    # Mapping kategori angka
     if "Sex" in X:
         X["Sex"] = X["Sex"].map({"M": 1, "F": 0})
 
@@ -43,14 +41,10 @@ if uploaded_file is not None:
                 .str.upper()
             )
 
-    # ======================================================
-    # 2. One-hot encoding dan paksa float
-    # ======================================================
+    # Onehot encoding dan paksa float
     X_encoded = pd.get_dummies(X, drop_first=True).astype(float)
 
-    # ======================================================
-    # 3. Train-test split
-    # ======================================================
+    # Train-test split
     X_train, X_test, y_train, y_test = train_test_split(
         X_encoded, y, test_size=0.2, random_state=42
     )
@@ -76,9 +70,7 @@ if uploaded_file is not None:
     ax.set_title("Prediksi vs Aktual")
     st.pyplot(fig)
 
-    # ======================================================
-    # 4. Input Manual untuk Prediksi
-    # ======================================================
+    # Input Manual untuk Prediksi
     st.write("### Coba Prediksi Manual")
 
     user_input = {}
@@ -94,7 +86,7 @@ if uploaded_file is not None:
     if st.button("Prediksi"):
         input_df = pd.DataFrame([user_input])
 
-        # === Mapping kategori yang sama seperti training ===
+        # Mapping kategori yang sama seperti training
         if "Sex" in input_df:
             input_df["Sex"] = input_df["Sex"].map({"M": 1, "F": 0})
             input_df["Sex"] = input_df["Sex"].fillna(0)
@@ -113,13 +105,13 @@ if uploaded_file is not None:
                     .str.upper()
                 )
 
-        # One-hot encoding input
+        # Onehot encoding input
         input_encoded = pd.get_dummies(input_df).astype(float)
 
         # Samakan kolom
         input_encoded = input_encoded.reindex(columns=X_encoded.columns, fill_value=0)
 
-        # === FIX FINAL: Hapus semua NaN ===
+        # FIX FINAL: Hapus semua NaN 
         input_encoded = input_encoded.fillna(0)
 
         # Prediksi
